@@ -2,49 +2,70 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
     properties (Access = public)
         % For all plots with lines, glyphs, etc... assumes all data 
         % processing was done with respect to "voxel convention". If 
-        % processing was done with dwmri_modelfit library then everything 
+        % processing was done with dwmri_modelfit library, then everything 
         % should work properly.
         
         % Inputs
-        data        % data corresponding to "type"
-        mask_vol    % mask
+        data        % data corresponding to type
+        bg_vol      % volume which is displayed as the background - for display purposes this should be scaled between 0 and 1
+        mask_vol    % mask - can be used to modulate size of lines/glyphs as well, if input is double
         xform_RAS   % 3x3 transform (no translation) to "voxel" RAS, usually obtained from the nifti header
         type        % string which stores the "type"
-        info        % info can be stored depending on the type
+        info        % info depends on the type
         
         % Supported types:
-        %   1) 'vol': used for plotting volumes
-        %       data - {vol}
+        %   1) 'vol':                                                      used for plotting volumes
+        %       data - none
+        %       bg_vol - vol
         %       info - none
-        %   2) 'outlines': used for plotting outlines of logical volume inputs; note that line thicknesses are optional
-        %       data - {outline_vol1, outline_vol2, ..., background_vol}
-        %       info - {line_colors, outline_thickness1, outline_thickness2, ...} 
+        %
+        %   2) 'outlines':                                                 used for plotting outlines of logical volume inputs
+        %       data - {outline_vol1, ..., outline_volN}
+        %       bg_vol - vol
+        %       info - {line_color1, ..., line_colorN; 
+        %               line_width1, ..., line_widthN}                     widths are optional
+        %
         %   3) 'colorized_FA':
         %       data - {V1_vol, FA_vol}
-        %       info - none
-        %   4) 'directions': (for plotting peaks)
-        %       data - {direction_vol1, ..., direction_volN, dwmri_vol; threshold_vol1, ..., threshold_volN, []} thresholds are optional
-        %       info - {bvals, line_colors, threshold} threshold is optional
+        %       bg_vol - none
+        %       info - {line_color, line_width}                            line_color and line_width are optional
+        %
+        %   4) 'directions':                                               for plotting peaks
+        %       data - {direction_vol1, ..., direction_volN; 
+        %               threshold_vol1, ..., threshold_volN}               thresholds are optional
+        %       bg_vol - vol
+        %       info - {line_color1, ..., line_colorN; 
+        %               line_width1, ..., line_widthN;                     widths are optional
+        %               threshold1, ..., thresholdN;                       thresholds are optional
+        %               scale_factor1, ..., scale_factorN}                 optional input for scaling the lines as they are displayed
+        %
         %   5) 'sh_coefs':
-        %       data - {sh_coefs_vol, dwmri_vol}
-        %       info - {bvals, lmax, sphere_num, min_max_normalization}
-        %   6) 'OD': (This is orientational distribution, basically for the SD method, which does not return spherical harmonics)
-        %       data - {OD_vol, dwmri_vol}
-        %       info - {bvals, min_max_normalization}
-        %   7) 'PAS': (This requires "lamdas" for PASMRI glyphs)
-        %       data - {PAS_vol, dwmri_vol}
-        %       info - {bvals, pas_radius, reduced_encoding, camino_path, sphere_num, min_max_normalization}
-        %   8) 'DT': (diffusion tensor - stored values must be 4D with 4th dim of: [D_xx D_xy D_xz D_yy D_yz D_zz])
-        %       data - {DT_vol, dwmri_vol}
-        %       info - {bvals, sphere_num, p} (p is the power, used to weight r like: r^p; this makes the peaks sharper) 
+        %       data - sh_coefs_vol
+        %       bg_vol - vol
+        %       info - {lmax, sphere_num, min_max_normalization}
+        %
+        %   6) 'OD':                                                       This is orientational distribution, basically for the SD method, which does not return spherical harmonics
+        %       data - OD_vol
+        %       bg_vol - vol
+        %       info - min_max_normalization
+        %
+        %   7) 'PAS':                                                      Assumes reduced encoding was used
+        %       data - PAS_vol
+        %       bg_vol - vol
+        %       info - {pas_radius, reduced_encoding, camino_path, sphere_num, min_max_normalization}
+        %
+        %   8) 'DT':                                                       diffusion tensor - stored values must be 4D with 4th dim of: [D_xx D_xy D_xz D_yy D_yz D_zz]
+        %       data - {DT_vol, V1_vol}                                    V1_vol is optional; if provided, the diffusion tensor will be colorized by v1 orientation 
+        %       bg_vol - vol
+        %       info - {sphere_num,exponent}                               exponent is optional
         %
         % Updates:
         %       v1.1.0 (8  Mar 2017): Added diffusion tensor glyphs, more 
         %           positions ('slice', 'boundingbox', etc...) to plot, 
         %           sagittal view, and "vol" and "outlines" input types
-        
-        % Additional members
-        bg_vol      % volume which is displayed as a background; this depends on the type
+        %       v1.2.0 (24 May 2017): Put an explicit background volume
+        %           option. Also added the option to colorize DT glyphs by 
+        %           V1 and also modulate size through the mask.        
     end
         
     methods (Static) 
@@ -79,20 +100,20 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
             slice = reshape(slice',size_slice(1),size_slice(2),[]);
         end 
         
-        function plot_direction(i,j,direction,line_color,parent_axes)
+        function plot_direction(i,j,direction,line_size,line_color,line_width,parent_axes)
             % Input to line(): (i,j) => (y,x)
-            p1x = j - 0.5*direction(2);
-            p1y = i - 0.5*direction(1);
-            p1z = 1 - 0.5*direction(3); % Add 1 so line is "above" image and can be seen fully
+            p1x = j - (line_size/2)*direction(2);
+            p1y = i - (line_size/2)*direction(1);
+            p1z = 1 - (line_size/2)*direction(3); % Add 1 so line is "above" image and can be seen fully
 
-            p2x = j + 0.5*direction(2);
-            p2y = i + 0.5*direction(1);
-            p2z = 1 + 0.5*direction(3); % Add 1 so line is "above" image and can be seen fully
+            p2x = j + (line_size/2)*direction(2);
+            p2y = i + (line_size/2)*direction(1);
+            p2z = 1 + (line_size/2)*direction(3); % Add 1 so line is "above" image and can be seen fully
 
-            line([p1x p2x],[p1y p2y],[p1z p2z],'color',line_color,'LineWidth',0.1,'parent',parent_axes);
+            line([p1x p2x],[p1y p2y],[p1z p2z],'color',line_color,'LineWidth',line_width,'parent',parent_axes);
         end    
         
-        function plot_OD(i,j,OD,sphere_coords,orientation,min_max_normalized,parent_axes)
+        function plot_OD(i,j,OD,sphere_coords,orientation,min_max_normalized,OD_size,OD_color,parent_axes)
             % Remove negative values
             OD(OD < 0) = 0; 
 
@@ -102,23 +123,32 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
             else
                 OD_normalized = OD./max(OD(:));
             end
+            
+            % Set the size
+            OD_normalized = OD_normalized.*OD_size;
 
+            % Create surface
             OD_surf_x = sphere_coords(:,:,2).*OD_normalized;  % x and y are flipped
             OD_surf_y = sphere_coords(:,:,1).*OD_normalized;
             OD_surf_z = sphere_coords(:,:,3).*OD_normalized;
 
             % Set color array  
-            switch orientation
-                case 'axial'
-                    color_idx = [1 2 3];
-                case 'coronal'
-                    color_idx = [1 3 2];
-                case 'sagittal'
-                    color_idx = [3 1 2];
+            if isempty(OD_color)
+                switch orientation
+                    case 'axial'
+                        color_idx = [1 2 3];
+                    case 'coronal'
+                        color_idx = [1 3 2];
+                    case 'sagittal'
+                        color_idx = [3 1 2];
+                end
+                OD_surf_norm = sqrt(OD_surf_x.^2 + OD_surf_y.^2 + OD_surf_z.^2);
+                OD_surf_color = cat(3,abs(OD_surf_x./OD_surf_norm),abs(OD_surf_y./OD_surf_norm),abs(OD_surf_z./OD_surf_norm));
+                OD_surf_color = OD_surf_color(:,:,color_idx);
+            else
+                % Typically for colorized diffusion tensor by V1
+                OD_surf_color = repmat(permute(OD_color,[1 3 2]),size(OD_normalized,1),size(OD_normalized,2));
             end
-            OD_surf_norm = sqrt(OD_surf_x.^2 + OD_surf_y.^2 + OD_surf_z.^2);
-            OD_color = cat(3,abs(OD_surf_x./OD_surf_norm),abs(OD_surf_y./OD_surf_norm),abs(OD_surf_z./OD_surf_norm));
-            OD_color = OD_color(:,:,color_idx);
 
             % Plot as surface
             scale_factor = 2.5;
@@ -126,12 +156,12 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
                  OD_surf_x./scale_factor+j, ...
                  OD_surf_y./scale_factor+i, ...
                  OD_surf_z./scale_factor+1, ... % Add one to raise it above imshow
-                 OD_color); 
+                 OD_surf_color); 
         end
     end
     
     methods (Access = public)
-        function obj = dwmri_visualizer(data, mask_vol, xform_RAS, type, info, bg_range)
+        function obj = dwmri_visualizer(data, bg_vol, mask_vol, xform_RAS, type, info)
             obj.data = data;
             obj.mask_vol = mask_vol;
             obj.xform_RAS = xform_RAS;
@@ -139,51 +169,20 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
             if exist('info','var')
                 obj.info = info;
             end
-            % bg_range is optional
             
             % Set bg image
-            if strcmp(type,'vol') || strcmp(type,'outlines')
-                % bg is the last volume
-                bg_vol = data{end};
-                    
-                % Normalize it
-                if exist('bg_range','var')
-                    bg_min = bg_range(1);
-                    bg_max = bg_range(2);
-                else
-                    % Defaults
-                    bg_min = prctile(bg_vol(mask_vol),1);
-                    bg_max = prctile(bg_vol(mask_vol),99);
-                end
-                bg_vol = (bg_vol-bg_min)./(bg_max-bg_min);                  
-                    
-                % Store as rgb
-                obj.bg_vol = repmat(bg_vol,[1 1 1 3]);
-            elseif strcmp(type,'colorized_FA')
+            if strcmp(type,'colorized_FA')
                 % bg is colorized FA - this gets set to RAS orientation later
                 obj.bg_vol = abs(bsxfun(@times,data{1},data{2})); 
-            elseif strcmp(type,'directions') || strcmp(type,'sh_coefs') || strcmp(type,'OD') || strcmp(type,'PAS') || strcmp(type,'DT')
-                % bg is mean of dwmri with max b-value by default; For a
-                % custom bg, set info{1} = 1 and set dwmri_vol to a volume
-                % of your choice.
-                dwmri_vol = data{1,end};
-                bg_vol = squeeze(nanmean(dwmri_vol(:,:,:,info{1} == max(info{1})),4));
-                    
-                % Normalize it
-                if exist('bg_range','var')
-                    bg_min = bg_range(1);
-                    bg_max = bg_range(2);
-                else
-                    % Defaults
-                    bg_min = 0.5*nanmedian(bg_vol(mask_vol));
-                    bg_max = 1.5*nanmedian(bg_vol(mask_vol));
-                end
-                bg_vol = (bg_vol-bg_min)./(bg_max-bg_min);                  
-                    
-                % Store as rgb
-                obj.bg_vol = repmat(bg_vol,[1 1 1 3]);
             else
-                error(['Unrecognized type: ' type ]);
+                % Every other type has a manual volume set; store as rgb
+                if size(bg_vol,4) == 1
+                    obj.bg_vol = repmat(bg_vol,[1 1 1 3]);
+                elseif size(bg_vol,4) == 3
+                    obj.bg_vol = bg_vol;
+                else
+                    error(['4th dimension of bg_vol must have size of 1 or 3; size of: ' num2str(size(bg_vol,4)) ' was found.' ]);
+                end
             end
         end       
         
@@ -203,11 +202,7 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
             type = obj.type;
         end   
         
-        function info = get_info(obj)  
-            if ~isprop(obj,'info')
-                error('Attempted to access .info member but "info" was never provided');
-            end
-            
+        function info = get_info(obj)              
             info = obj.info;
         end            
                 
@@ -288,7 +283,6 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
             %       |               |               |
             %       P               I               I
             %
-            tic
             
             if ~exist('parent_axes','var')
                 f = figure();
@@ -300,11 +294,11 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
             % ------------------------------------------------------------%
             
             data = obj.get_data();
+            bg_vol = obj.get_bg_vol();
             mask_vol = obj.get_mask_vol();
             xform_RAS = obj.get_xform_RAS();
             type = obj.get_type();
             info = obj.get_info();
-            bg_vol = obj.get_bg_vol();
             
             % Get "total" xform to get from storage orientation to plot orientation.
             xform_total = dwmri_visualizer.get_xform_plot(orientation) * xform_RAS; 
@@ -322,7 +316,7 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
             if strcmp(type,'outlines')                                       
                 % Handle data slice      
                 data_slice = {};
-                for i = 1:length(data)-1
+                for i = 1:length(data)
                     data_slice{i} = obj.get_slice_in_plot_orientation(slice_num,data{i},orientation); %#ok<AGROW>
                 end                   
             elseif strcmp(type,'colorized_FA')
@@ -335,46 +329,56 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
             elseif strcmp(type,'directions')                                          
                 % Handle data slice      
                 data_slice = {};
-                for i = 1:size(data,2)-1           
+                for i = 1:size(data,2)           
                     data_slice{1,i} = obj.get_slice_in_plot_orientation(slice_num,data{1,i},orientation); %#ok<AGROW>
                     data_slice{1,i} = dwmri_visualizer.apply_xfm_3D_slice(data_slice{1,i},xform_total); %#ok<AGROW>
-                    if size(data,1) == 2
+                    if size(data,1) >= 2
                         % Threshold is scalar so no reorientation of
                         % components is needed.
                         data_slice{2,i} = obj.get_slice_in_plot_orientation(slice_num,data{2,i},orientation); %#ok<AGROW>
                     end
                 end   
             elseif strcmp(type,'sh_coefs') % For ODs just apply xform to sphere coords - this is the simplest/fastest way to reorient in matlab
-                data_slice{1} = obj.get_slice_in_plot_orientation(slice_num,data{1},orientation);
+                data_slice{1} = obj.get_slice_in_plot_orientation(slice_num,data,orientation);
                 % Get sphere_coords
-                [sphere_x,sphere_y,sphere_z] = sphere(info{3});
+                [sphere_x,sphere_y,sphere_z] = sphere(info{2});
                 data_slice{2} = dwmri_visualizer.apply_xfm_3D_slice(cat(3,sphere_x,sphere_y,sphere_z),xform_total);
             elseif strcmp(type,'OD')
-                data_slice{1} = obj.get_slice_in_plot_orientation(slice_num,data{1},orientation);
+                data_slice{1} = obj.get_slice_in_plot_orientation(slice_num,data,orientation);
                 % Get sphere_coords
                 [sphere_x,sphere_y,sphere_z] = sphere(sqrt(length(data_slice{1}))-1);
                 data_slice{2} = dwmri_visualizer.apply_xfm_3D_slice(cat(3,sphere_x,sphere_y,sphere_z),xform_total);
             elseif strcmp(type,'PAS')
-                data_slice{1} = obj.get_slice_in_plot_orientation(slice_num,data{1},orientation);
+                data_slice{1} = obj.get_slice_in_plot_orientation(slice_num,data,orientation);
                 % Get sphere_coords
-                [sphere_x,sphere_y,sphere_z] = sphere(info{5});
+                [sphere_x,sphere_y,sphere_z] = sphere(info{4});
                 data_slice{2} = dwmri_visualizer.apply_xfm_3D_slice(cat(3,sphere_x,sphere_y,sphere_z),xform_total);      
             elseif strcmp(type,'DT')
                 data_slice{1} = obj.get_slice_in_plot_orientation(slice_num,data{1},orientation);  
                 % Get sphere_coords
-                [sphere_x,sphere_y,sphere_z] = sphere(info{2});
-                data_slice{2} = dwmri_visualizer.apply_xfm_3D_slice(cat(3,sphere_x,sphere_y,sphere_z),xform_total);                
+                [sphere_x,sphere_y,sphere_z] = sphere(info{1});
+                data_slice{2} = dwmri_visualizer.apply_xfm_3D_slice(cat(3,sphere_x,sphere_y,sphere_z),xform_total);      
+                
+                % Get V1 in RAS configuration if V1 is provided
+                if length(data) >= 2
+                    % NOTE: this uses xform_RAS, NOT xform_total
+                    data_slice{3} = obj.get_slice_in_plot_orientation(slice_num,data{2},orientation); 
+                    data_slice{3} = abs(dwmri_visualizer.apply_xfm_3D_slice(data_slice{3},xform_RAS)); 
+                end
             end
                         
             % ------------------------------------------------------------%
             % Plot slice -------------------------------------------------%
             % ------------------------------------------------------------%
             disp('Plotting slice...');
-                       
+            
             position_split = strsplit(position,'-');
             if strcmp(position_split{end},'centroid')
-                % Plots square window around centroid
-                rp_slice = regionprops(double(mask_slice),'Centroid','Area');
+                % Plots square window around centroid; make sure
+                % mask_slice is converted to logical first (to threshold).
+                % Then it must be converted to double so that region props
+                % calculates a single centroid.
+                rp_slice = regionprops(double(mask_slice > 0),'Centroid','Area');
                 i_centroid = round(rp_slice.Centroid(2));
                 j_centroid = round(rp_slice.Centroid(1));
 
@@ -384,20 +388,20 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
                         % Do nothing
                     case 'top'                    
                         [~,i_idx] = meshgrid(1:size(mask_slice,2),1:size(mask_slice,1));
-                        mask_slice = mask_slice & i_idx <= i_centroid;
+                        mask_slice(i_idx > i_centroid) = 0;
                     case 'bottom'
                         [~,i_idx] = meshgrid(1:size(mask_slice,2),1:size(mask_slice,1));
-                        mask_slice = mask_slice & i_idx >= i_centroid;                    
+                        mask_slice(i_idx < i_centroid) = 0;                    
                     case 'left'
                         [j_idx,~] = meshgrid(1:size(mask_slice,2),1:size(mask_slice,1));
-                        mask_slice = mask_slice & j_idx <= j_centroid;
+                        mask_slice(j_idx > j_centroid) = 0;
                     case 'right'
                         [j_idx,~] = meshgrid(1:size(mask_slice,2),1:size(mask_slice,1));
-                        mask_slice = mask_slice & j_idx >= j_centroid;
+                        mask_slice(j_idx < j_centroid) = 0;
                 end                
 
                 % Regrab centroid and also get bounding box
-                rp_slice = regionprops(double(mask_slice),'Centroid','BoundingBox','Area');
+                rp_slice = regionprops(double(mask_slice > 0),'Centroid','BoundingBox','Area');
                 i_centroid = round(rp_slice.Centroid(2));
                 j_centroid = round(rp_slice.Centroid(1));
 
@@ -420,7 +424,7 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
                 bottom = size(mask_slice,1);
             elseif strcmp(position,'boundingbox')                
                 % Plot bounding box
-                rp_slice = regionprops(double(mask_slice),'BoundingBox','Area');
+                rp_slice = regionprops(double(mask_slice > 0),'BoundingBox','Area');
 
                 % Determine window size based on bounding box (must account
                 % for half pixel in bounding box)
@@ -439,19 +443,19 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
             
             % Stuff before plotting
             if strcmp(type,'outlines')
-                % This plots multiple outlines
-                line_colors = info{1};
-
                 % Cycle over each outline
                 for outline_num = 1:length(data_slice)                                    
                     % Get slice and plot the outline
                     outline_slice = data_slice{outline_num};
                     
-                    % Get line thickness
-                    if length(info) > 1
-                        outline_thickness = info{outline_num+1};
+                    % Get line color
+                    line_color = info{1,outline_num};
+                    
+                    % Get line width
+                    if size(info,1) >= 2
+                        line_width = info{2,outline_num};
                     else
-                        outline_thickness = 0.25;
+                        line_width = 0.25;
                     end
 
                     % Get boundaries
@@ -461,27 +465,28 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
                         plot(parent_axes, ...
                              boundary(:,2) - (left-1), ...
                              boundary(:,1) - (top-1), ...
-                             line_colors{mod(outline_num-1,length(line_colors))+1}, ...
+                             'Color', ...
+                             line_color, ...
                              'LineWidth', ...
-                             outline_thickness)
+                             line_width)
                     end           
                 end
             elseif strcmp(type,'sh_coefs')
                 % Sample spherical harmonics using sphere() points
-                [sphere_x,sphere_y,sphere_z] = sphere(info{3});
-                [sh_sphere,~,~] = construct_SH_basis(info{2}, [sphere_x(:) sphere_y(:) sphere_z(:)], 2, 'real');
+                [sphere_x,sphere_y,sphere_z] = sphere(info{2});
+                [sh_sphere,~,~] = construct_SH_basis(info{1}, [sphere_x(:) sphere_y(:) sphere_z(:)], 2, 'real');
             elseif strcmp(type,'PAS')
                 % Get sphere_coords for sampling the PAS
-                [sphere_x,sphere_y,sphere_z] = sphere(info{5});
+                [sphere_x,sphere_y,sphere_z] = sphere(info{4});
                 sphere_coords_sample = cat(2,sphere_x(:),sphere_y(:),sphere_z(:));   
                 
                 % Get pointset from camino installation
-                pointset_path = fullfile(info{4},'PointSets',['Elec' sprintf('%3.3d',info{3}) '.txt']);
+                pointset_path = fullfile(info{3},'PointSets',['Elec' sprintf('%3.3d',info{2}) '.txt']);
                 pointset = dlmread(pointset_path);
                 pointset = reshape(pointset(2:end),3,[])'; % First value is number of elements, so skip it
             elseif strcmp(type,'DT')
                 % Get sphere_coords for sampling the DT
-                [sphere_x,sphere_y,sphere_z] = sphere(info{2});
+                [sphere_x,sphere_y,sphere_z] = sphere(info{1});
                 sphere_coords_sample = cat(2,sphere_x(:),sphere_y(:),sphere_z(:));   
             end
             
@@ -491,22 +496,48 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
                     if mask_slice(i,j)
                         switch type
                             case 'colorized_FA'
+                                % Get line color
+                                if length(info) >= 1
+                                    line_color = info{1};
+                                else
+                                    line_color = 'w';
+                                end
+                                
+                                % Get line_width
+                                if length(info) >= 2
+                                    line_width = info{2};
+                                else
+                                    line_width = 0.25;                                    
+                                end
+                                
                                 % This plots v1 direction          
                                 dwmri_visualizer.plot_direction(i-top+1, ...
                                                                 j-left+1, ...
                                                                 squeeze(data_slice(i,j,:)), ...
-                                                                'w', ...
+                                                                mask_slice(i,j), ...
+                                                                line_color, ...
+                                                                line_width, ...
                                                                 parent_axes);
                             case 'directions'
                                 % This plots multiple directions with an
-                                % optional threshold
-                                line_colors = info{2};
+                                % optional threshold and scale factor
                                 
                                 % Cycle over each direction
-                                for outline_num = 1:size(data_slice,2)
-                                    if size(data_slice,1) == 2
+                                for outline_num = 1:size(data_slice,2)                                    
+                                    % Get line color
+                                    line_color = info{1,outline_num};
+
+                                    % Get line_width
+                                    if size(info,1) >= 2
+                                        line_width = info{2,outline_num};
+                                    else
+                                        line_width = 0.25;                                    
+                                    end
+                                
+                                    % Check threshold                                    
+                                    if size(info,1) >= 3
                                         threshold_slice = data_slice{2,outline_num};
-                                        if threshold_slice(i,j) < info{3} % info{3} is the threshold
+                                        if threshold_slice(i,j) < info{3,outline_num} % info{3} is the threshold
                                             % This is below threshold, so
                                             % just skip it
                                             continue
@@ -515,11 +546,28 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
                                     
                                     % Get slice and plot the direction
                                     direction_slice = data_slice{1,outline_num};
-                                    dwmri_visualizer.plot_direction(i-top+1, ...
-                                                                    j-left+1, ...
-                                                                    squeeze(direction_slice(i,j,:)), ...
-                                                                    line_colors{mod(outline_num-1,length(line_colors))+1}, ...
-                                                                    parent_axes);
+                                    
+                                    % plot direction
+                                    if size(info,1) <= 3
+                                        % Use mask to scale direction
+                                        dwmri_visualizer.plot_direction(i-top+1, ...
+                                                                        j-left+1, ...
+                                                                        squeeze(direction_slice(i,j,:)), ...
+                                                                        mask_slice(i,j), ...
+                                                                        line_color, ...
+                                                                        line_width, ...
+                                                                        parent_axes);
+                                    else
+                                        % User scale factor in info{} and
+                                        % the thresholds to scale direction
+                                        dwmri_visualizer.plot_direction(i-top+1, ...
+                                                                        j-left+1, ...
+                                                                        squeeze(direction_slice(i,j,:)), ...
+                                                                        info{4,outline_num}*threshold_slice(i,j), ...
+                                                                        line_color, ...
+                                                                        line_width, ...
+                                                                        parent_axes);
+                                    end
                                 end
                             case 'sh_coefs'        
                                 sh_coefs_slice = data_slice{1};
@@ -532,10 +580,18 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
                                 end
                                 
                                 % Multiply basis by sh coefficients to get values of OD on sphere
-                                OD = reshape(sh_sphere * squeeze(sh_coefs_slice(i,j,:)),[info{3}+1, info{3}+1]);
+                                OD = reshape(sh_sphere * squeeze(sh_coefs_slice(i,j,:)),[info{2}+1, info{2}+1]);
                                                                 
                                 % Plot OD
-                                dwmri_visualizer.plot_OD(i-top+1,j-left+1,OD,sphere_coords,orientation,info{4},parent_axes);  
+                                dwmri_visualizer.plot_OD(i-top+1, ...
+                                                         j-left+1, ...
+                                                         OD, ...
+                                                         sphere_coords, ...
+                                                         orientation, ...
+                                                         info{3}, ...
+                                                         mask_slice(i,j), ...
+                                                         [], ...
+                                                         parent_axes);  
                             case 'OD'     
                                 OD_slice = data_slice{1};
                                 sphere_coords = data_slice{2};
@@ -550,7 +606,15 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
                                 OD = reshape(squeeze(OD_slice(i,j,:)),[sqrt(size(OD_slice,3)) sqrt(size(OD_slice,3))]);
                                 
                                 % Plot OD
-                                dwmri_visualizer.plot_OD(i-top+1,j-left+1,OD,sphere_coords,orientation,info{2},parent_axes); 
+                                dwmri_visualizer.plot_OD(i-top+1, ...
+                                                         j-left+1, ...
+                                                         OD, ...
+                                                         sphere_coords, ...
+                                                         orientation, ...
+                                                         info, ...
+                                                         mask_slice(i,j), ...
+                                                         [], ...
+                                                         parent_axes); 
                             case 'PAS'
                                 pas_slice = data_slice{1};
                                 sphere_coords = data_slice{2};
@@ -598,17 +662,25 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
                                     % Calculate PAS
                                     expo = lambdas(1);
                                     for m = 2:length(lambdas)
-                                        pasKernel = cos(info{2} * sum(pointset(m-1,:).*sphere_coords_sample(k,1:3)));
+                                        pasKernel = cos(info{1} * sum(pointset(m-1,:).*sphere_coords_sample(k,1:3)));
                                         expo = expo + lambdas(m) * pasKernel;
                                     end
                                     PAS(k) = exp(expo);
                                 end
 
                                 % Reshape to fit sphere coords  
-                                PAS = reshape(PAS,[info{5}+1, info{5}+1]);
+                                PAS = reshape(PAS,[info{4}+1, info{4}+1]);
 
                                 % Plot PAS
-                                dwmri_visualizer.plot_OD(i-top+1,j-left+1,PAS,sphere_coords,orientation,info{6},parent_axes); 
+                                dwmri_visualizer.plot_OD(i-top+1, ...
+                                                         j-left+1, ...
+                                                         PAS, ...
+                                                         sphere_coords, ...
+                                                         orientation, ...
+                                                         info{5}, ...
+                                                         mask_slice(i,j), ...
+                                                         [], ...
+                                                         parent_axes); 
                             case 'DT'
                                 DT_slice = data_slice{1};
                                 sphere_coords = data_slice{2};
@@ -639,13 +711,35 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
                                 DT_mat_inv = DT_mat^-1;
                                 DT_inv = [DT_mat_inv(1,1:3) DT_mat_inv(2,2:3) DT_mat_inv(3,3)]';                            
                                 
+                                % Get exponent
+                                if length(info) >= 2
+                                    exponent = info{2};
+                                else
+                                    exponent = 1;
+                                end
+                                
                                 % Sample (this is vectorized version of
                                 % (1/sqrt(2*g'*D^-1*g))^p
                                 OD = reshape(1./sqrt(2 * [sphere_coords_sample(:,1).^2 2*sphere_coords_sample(:,1).*sphere_coords_sample(:,2) 2*sphere_coords_sample(:,1).*sphere_coords_sample(:,3) sphere_coords_sample(:,2).^2 2*sphere_coords_sample(:,2).*sphere_coords_sample(:,3) sphere_coords_sample(:,3).^2] * DT_inv), ...
-                                             [info{2}+1, info{2}+1]).^info{3};
-                                                                                                                                           
+                                             [info{1}+1, info{1}+1]).^exponent;
+                                
+                                % Get DT color (if V1 was provided)
+                                dt_color = [];                                
+                                if length(data) >= 2
+                                    v1_slice = data_slice{3};
+                                    dt_color = squeeze(v1_slice(i,j,:))';
+                                end
+                                         
                                 % Plot OD
-                                dwmri_visualizer.plot_OD(i-top+1,j-left+1,OD,sphere_coords,orientation,false,parent_axes);  
+                                dwmri_visualizer.plot_OD(i-top+1, ...
+                                                         j-left+1, ...
+                                                         OD, ...
+                                                         sphere_coords, ...
+                                                         orientation, ...
+                                                         false, ...
+                                                         mask_slice(i,j), ...
+                                                         dt_color, ...
+                                                         parent_axes);  
                         end
                     end
                 end
@@ -657,7 +751,6 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
                 % Remove grid around surf
                 shading(parent_axes,'interp');                    
             end
-            toc
         end
     end    
 end

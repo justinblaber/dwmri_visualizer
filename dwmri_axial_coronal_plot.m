@@ -45,7 +45,7 @@ function f = dwmri_axial_coronal_plot(dv,info)
     % Get centroid of mask for location of axial and coronal slices; must 
     % do this in RAS orientation
     mask_vol_RAS = vol_utils.convert_to_xform(dv.get_mask_vol(),dv.get_xform_RAS());         
-    rp_mask_vol = regionprops(double(mask_vol_RAS),'Centroid','Area');
+    rp_mask_vol = regionprops(double(mask_vol_RAS > 0),'Centroid','Area');
     centroid = round(rp_mask_vol.Centroid);
     if length(centroid) == 2 % vol might be 1D or 2D by matlabs standards if trailing dimensions are 1
         centroid(3) = 1;
