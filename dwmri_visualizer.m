@@ -250,7 +250,7 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
                                 
             % Convert slice to plot orientation - still may need to apply 
             % xform to components, but that is left to the caller.       
-            slice = vol_utils.convert_to_xform(slice,xform_total);
+            slice = nifti_utils.vol_apply_xform(slice,xform_total);
             
             % You can't squeeze() here since one of the dimensions of the 
             % slice could be 1. Just remove 3rd dimension.
