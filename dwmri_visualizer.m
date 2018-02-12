@@ -1,9 +1,7 @@
 classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
     properties (Access = public)
         % For all plots with lines, glyphs, etc... assumes all data 
-        % processing was done with respect to "voxel convention". If 
-        % processing was done with dwmri_modelfit library, then everything 
-        % should work properly.
+        % processing was done with respect to "voxel convention".
         
         % Inputs
         data        % data corresponding to type
@@ -58,14 +56,6 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
         %       data - {DT_vol, V1_vol}                                    V1_vol is optional; if provided, the diffusion tensor will be colorized by v1 orientation 
         %       bg_vol - vol
         %       info - {sphere_num,exponent}                               exponent is optional
-        %
-        % Updates:
-        %       v1.1.0 (8  Mar 2017): Added diffusion tensor glyphs, more 
-        %           positions ('slice', 'boundingbox', etc...) to plot, 
-        %           sagittal view, and "vol" and "outlines" input types
-        %       v1.2.0 (24 May 2017): Put an explicit background volume
-        %           option. Also added the option to colorize DT glyphs by 
-        %           V1 and also modulate size through the mask.        
     end
         
     methods (Static) 
@@ -155,7 +145,7 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
             surf(parent_axes, ...
                  OD_surf_x./scale_factor+j, ...
                  OD_surf_y./scale_factor+i, ...
-                 OD_surf_z./scale_factor+1, ... % Add one to raise it above imshow
+                 OD_surf_z./scale_factor+1, ... % Add one to raise it above imagesc
                  OD_surf_color); 
         end
     end
@@ -405,8 +395,8 @@ classdef dwmri_visualizer < handle %#ok<*PROP,*INUSL,*PROPLC>
                 i_centroid = round(rp_slice.Centroid(2));
                 j_centroid = round(rp_slice.Centroid(1));
 
-                % Determine window size based on bounding box (must account for
-                % half pixel in bounding box)
+                % Determine window size based on bounding box (must account
+                % for half pixel in bounding box)
                 window = round(min([j_centroid-(rp_slice.BoundingBox(1)+0.5) ...
                                     (rp_slice.BoundingBox(1)+rp_slice.BoundingBox(3)-0.5)-j_centroid ...
                                     i_centroid-(rp_slice.BoundingBox(2)+0.5) ...
