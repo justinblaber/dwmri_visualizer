@@ -1,7 +1,7 @@
 %% Set environment
-addpath(genpath('~/nifti_utils'));
-addpath(genpath('~/dwmri_visualizer'));
-data_path = '<data_path>';
+addpath(genpath('nifti_utils'));
+addpath(genpath('dwmri_visualizer'));
+data_path = 'data';
        
 %% sh_coefs test - MT_SCSD
 
