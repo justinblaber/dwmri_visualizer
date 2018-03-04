@@ -19,10 +19,10 @@ unzip data.zip
 >> addpath(genpath('dwmri_visualizer'));
 >> data_path = 'data';
 ```
-Then, either run each script or just run specific cells in each script:
+Then, run specific cells in each script:
 ```
->> test_dwmri_plot
->> test_dwmri_visualizer
+>> edit test_dwmri_plot.m
+>> edit test_dwmri_visualizer.m
 ```
 Select cells from `test_dwmri_visualizer.m` and `test_dwmri_plot.m`  are explained below:
 ```
