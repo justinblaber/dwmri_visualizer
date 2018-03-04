@@ -24,7 +24,7 @@ Then, run specific cells in each script:
 >> edit test_dwmri_visualizer.m
 >> edit test_dwmri_plot.m
 ```
-Select cells from `test_dwmri_visualizer.m` and `test_dwmri_plot.m`  are explained below:
+Select cells from `test_dwmri_visualizer.m` and `test_dwmri_plot.m`  are shown below:
 ```
 %% Directions test - bedpostX
 
