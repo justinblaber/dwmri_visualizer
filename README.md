@@ -157,5 +157,5 @@ end
 ```
 
 <p align="center">
-  <a href="https://justinblaber.org/downloads/dwmri_visualizer/MT_SCSD.pdf"><img width="611" height="791" src="https://i.imgur.com/rhafPYz.png"></a>
+  <a href="https://justinblaber.org/downloads/github/dwmri_visualizer/MT_SCSD.pdf"><img width="611" height="791" src="https://i.imgur.com/rhafPYz.png"></a>
 </p>
