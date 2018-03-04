@@ -5,7 +5,7 @@ Visualization toolbox for DWMRI related processing, including: DTI, spherical ha
 1) Install [FSL](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki)
 2) Download [nifti_utils](https://github.com/justinblaber/nifti_utils)
 3) (optional - only if plotting PASMRI) Download [camino](http://camino.cs.ucl.ac.uk/)
-4) (optional) Download example [data](http://justinblaber.org/downloads/dwmri_visualizer/data.zip)
+4) (optional) Download example [data](https://justinblaber.org/downloads/github/dwmri_visualizer/data.zip)
 5) Set environment:
 ```
 addpath(genpath('~/nifti_utils'));
