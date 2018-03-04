@@ -3,17 +3,28 @@ Visualization toolbox for DWMRI related processing, including: DTI, spherical ha
 
 # Installation instructions:
 1) Install [FSL](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki)
-2) Download [nifti_utils](https://github.com/justinblaber/nifti_utils)
-3) (optional - only if plotting PASMRI) Download [camino](http://camino.cs.ucl.ac.uk/)
-4) (optional) Download example [data](https://justinblaber.org/downloads/github/dwmri_visualizer/data.zip)
-5) Set environment:
+2) (optional - only if plotting PASMRI) Install [camino](http://camino.cs.ucl.ac.uk/)
+3) Download repos and (optional) example data:
 ```
-addpath(genpath('~/nifti_utils'));
-addpath(genpath('~/dwmri_visualizer'));
-data_path = '<data_path>';
-```
-6) Run test script(s):
+git clone https://github.com/justinblaber/nifti_utils.git
+git clone https://github.com/justinblaber/dwmri_visualizer.git
 
+# Optionally download example data
+wget https://justinblaber.org/downloads/github/dwmri_visualizer/data.zip
+unzip data.zip
+```
+3) In MATLAB:
+```
+>> addpath(genpath('nifti_utils'));
+>> addpath(genpath('dwmri_visualizer'));
+>> data_path = '<data>';
+```
+Then, either run each script or just run specific cells in each script:
+```
+>> test_dwmri_plot
+>> test_dwmri_visualizer
+```
+Select cells from `test_dwmri_visualizer.m` and `test_dwmri_plot.m`  are explained below:
 ```
 %% Directions test - bedpostX
 
