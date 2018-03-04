@@ -9,7 +9,7 @@ Visualization toolbox for DWMRI related processing, including: DTI, spherical ha
 git clone https://github.com/justinblaber/nifti_utils.git
 git clone https://github.com/justinblaber/dwmri_visualizer.git
 
-# Optionally download example data
+# Optionally download example data (note this is quite large... sorry)
 wget https://justinblaber.org/downloads/github/dwmri_visualizer/data.zip
 unzip data.zip
 ```
