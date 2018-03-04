@@ -13,7 +13,7 @@ git clone https://github.com/justinblaber/dwmri_visualizer.git
 wget https://justinblaber.org/downloads/github/dwmri_visualizer/data.zip
 unzip data.zip
 ```
-3) In MATLAB:
+4) In MATLAB:
 ```
 >> addpath(genpath('nifti_utils'));
 >> addpath(genpath('dwmri_visualizer'));
