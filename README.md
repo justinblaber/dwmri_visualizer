@@ -17,7 +17,7 @@ unzip data.zip
 ```
 >> addpath(genpath('nifti_utils'));
 >> addpath(genpath('dwmri_visualizer'));
->> data_path = '<data>';
+>> data_path = 'data';
 ```
 Then, either run each script or just run specific cells in each script:
 ```
