@@ -1,6 +1,8 @@
 # dwmri_visualizer
 Visualization toolbox for DWMRI related processing, including: DTI, spherical harmonics, etc... 
 
+<a href="https://zenodo.org/badge/latestdoi/119863438"><img src="https://zenodo.org/badge/119863438.svg" alt="DOI"></a>
+
 # Installation instructions:
 1) Install [FSL](https://fsl.fmrib.ox.ac.uk/fsl/fslwiki)
 2) (optional - only if plotting PASMRI) Install [camino](http://camino.cs.ucl.ac.uk/)
