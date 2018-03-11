@@ -1,7 +1,7 @@
 # dwmri_visualizer
 Visualization toolbox for DWMRI related processing, including: DTI, spherical harmonics, etc... 
 
-
+If you use this tool in your research, please cite with:
 <a href="https://doi.org/10.5281/zenodo.1191106"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.1191106.svg" alt="DOI"></a>
 
 # Installation instructions:
